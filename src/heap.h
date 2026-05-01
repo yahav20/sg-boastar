@@ -28,11 +28,4 @@ void insertheap(snode *thiscell);
 int sizeheap();
 snode *posheap(int i);
 
-// --------------------------    Binary Heap for Eppstein-MO  -----------------------------------------
-void emptyheap_mo(); 
-snode_mo *popheap_mo();
-snode_mo *topheap_mo();
-void insertheap_mo(snode_mo *thiscell);
-int sizeheap_mo();
-
 #endif
