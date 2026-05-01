@@ -45,4 +45,4 @@ test-BAY:
 test-NE:
 	./benchmark_sg_boa Maps/NE-road-d.txt 20 60
 
-test all: test-NY test-BAY test-NE
+test-all: test-NY test-BAY test-NE
