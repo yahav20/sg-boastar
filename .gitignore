@@ -1,0 +1,8 @@
+obj/*.o
+boa
+bod
+namoadr
+sg_boa
+benchmark_sg_boa
+.vscode/*
+Maps/*.txt

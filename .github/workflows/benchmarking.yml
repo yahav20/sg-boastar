@@ -1,0 +1,29 @@
+name: Benchmarking - BOA* vs SG-BOA*
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  benchmark-sg_boa:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build
+        run: |
+          mkdir -p obj
+          make rebuild
+
+      - name: Run BOA* vs SG-BOA* benchmark - NY
+        run: ./benchmark_sg_boa Maps/NY-road-d.txt 20 60
+
+      - name: Run BOA* vs SG-BOA* benchmark - BAY
+        run: ./benchmark_sg_boa Maps/BAY-road-d.txt 20 60
+
+      - name: Run BOA* vs SG-BOA* benchmark - NE
+        run: ./benchmark_sg_boa Maps/NE-road-d.txt 20 60
