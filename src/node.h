@@ -29,6 +29,8 @@ struct gnode
     // Base heuristic info (if needed by other algorithms)
     unsigned h1;
     unsigned h2;
+    unsigned h1_shadow; 
+    unsigned h2_shadow;
     double lat;
     double lon;
     

@@ -17,18 +17,18 @@ extern double global_timeout_sec;
 extern struct timeval current_test_start_time;
 extern bool is_timeout();
 
-// --- Structs for Benchmarking ---
-typedef struct {
-    unsigned start;
-    unsigned goal;
-} Query;
+// --- Extern for our new Shadow-Guided pruning stat ---
+extern unsigned stat_pruned_lookahead;
 
+// --- EXTERN FOR SG-BOA DIJKSTRA ---
+extern int sg_backward_dijkstra(int dim);
+
+// --- Structs for Benchmarking ---
 typedef struct {
     bool timeout;
     int solutions;
     double time_total;
     double time_heur_ms;
-    double time_scout_ms;
     double time_search_ms;
     unsigned long long generated;
     unsigned long long expanded;
@@ -36,6 +36,7 @@ typedef struct {
     unsigned long long created;
     unsigned long long recycled;
     unsigned pruned;
+    unsigned pruned_lookahead; // NEW METRIC
 } BenchStats;
 
 // --- Time Helper ---
@@ -55,7 +56,6 @@ int cmp_solutions(const void* a, const void* b) {
 #define BENCH_METRIC_W 32
 #define BENCH_VAL_W    15
 #define BENCH_DIFF_W   12
-#define BENCH_NA       "-"   
 
 static void print_dashes(int n) {
     for (int i = 0; i < n; i++) putchar('-');
@@ -142,6 +142,7 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+    typedef struct { unsigned start; unsigned goal; } Query;
     Query queries[1000];
     int num_queries = 0;
     while (fscanf(qfile, "%u %u", &queries[num_queries].start, &queries[num_queries].goal) == 2) {
@@ -161,7 +162,7 @@ int main(int argc, char** argv) {
         start = queries[q].start - 1;
         goal = queries[q].goal - 1;
 
-        struct timeval t_start, t_heur, t_scout, t_end;
+        struct timeval t_start, t_heur, t_end;
 
         // ==========================================
         // 1. Run Standard BOA*
@@ -189,32 +190,34 @@ int main(int argc, char** argv) {
         boa_stats.extracted = stat_exsarcted;        
         boa_stats.created = stat_created;           
         boa_stats.recycled = stat_recycled;
+        boa_stats.pruned_lookahead = 0; 
         
         int boa_num_sols = nsolutions;
         memcpy(boa_sols, solutions, sizeof(unsigned) * 2 * (size_t)nsolutions);
 
         // ==========================================
-        // 2. Run SG-BOA*
+        // 2. Run SG-BOA* (Shadow-Guided)
         // ==========================================
         gettimeofday(&current_test_start_time, NULL);
         gettimeofday(&t_start, NULL);
         initialize_parameters();
-        backward_dijkstra(1);
-        backward_dijkstra(2);
-        gettimeofday(&t_heur, NULL);
         
-        find_warm_start_solutions();
-        gettimeofday(&t_scout, NULL);
+        // תיקון קריטי: הפעלת הדייקסטרה המיוחדת שלנו!
+        sg_backward_dijkstra(1);
+        sg_backward_dijkstra(2);
+        
+        gettimeofday(&t_heur, NULL);
         
         stat_expansions = 0; stat_generated = 0; stat_pruned = 0;
         stat_exsarcted = 0; stat_created = 0; stat_recycled = 0; nsolutions = 0;
+        stat_pruned_lookahead = 0; 
+        
         sg_boastar();
         gettimeofday(&t_end, NULL);
 
         BenchStats sg_stats;
         sg_stats.time_heur_ms = get_time_ms_bench(t_start, t_heur);
-        sg_stats.time_scout_ms = get_time_ms_bench(t_heur, t_scout);
-        sg_stats.time_search_ms = get_time_ms_bench(t_scout, t_end);
+        sg_stats.time_search_ms = get_time_ms_bench(t_heur, t_end);
         sg_stats.time_total = get_time_ms_bench(t_start, t_end);
         sg_stats.solutions = nsolutions;
         sg_stats.generated = stat_generated;
@@ -223,6 +226,7 @@ int main(int argc, char** argv) {
         sg_stats.extracted = stat_exsarcted;          
         sg_stats.created = stat_created;             
         sg_stats.recycled = stat_recycled;           
+        sg_stats.pruned_lookahead = stat_pruned_lookahead;
 
         int sg_num_sols = nsolutions;
         memcpy(sg_sols, solutions, sizeof(unsigned) * 2 * (size_t)nsolutions);
@@ -263,7 +267,12 @@ int main(int argc, char** argv) {
         print_row_int_diff("States Expanded (Popped)", boa_stats.expanded, sg_stats.expanded);
 
         print_row_int_diff("States Extracted", boa_stats.extracted, sg_stats.extracted);
-        print_row_int_diff("States Pruned", boa_stats.pruned, sg_stats.pruned);
+        print_row_int_diff("States Pruned (gmin)", boa_stats.pruned, sg_stats.pruned);
+        
+        char lh_str[32];
+        snprintf(lh_str, sizeof lh_str, "%u", sg_stats.pruned_lookahead);
+        print_row_str("Pruned (Lookahead)", "0", lh_str, "N/A");
+        
         print_row_int_diff("States Created", boa_stats.created, sg_stats.created);
         print_row_int_diff("States Recycled", boa_stats.recycled, sg_stats.recycled);
         print_border();
